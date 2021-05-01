@@ -1,0 +1,197 @@
+---
+title: "Change in gene expression with LSD1 knockdown"
+author: "Hani Kim"
+date: "`r paste0('Initiated on 2020 Oct 31, compiled on ', format(Sys.time(), '%Y %b %d'))`"
+output:
+  html_document:
+    code_folding: hide
+    fig_height: 12
+    fig_width: 12
+    toc: yes
+    number_sections: true
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loading
+## Load libraries
+```{r}
+suppressPackageStartupMessages( {
+    library(illuminaio)
+    library(readxl)
+    library(limma)
+    library(dplyr)
+    library(readr)  
+})
+```
+
+## Load pausing index
+```{r}
+PI <- read.table("../../Data/PI_ES_0h.txt", header=F)
+PI <- sapply(split(PI[,3], PI[,2]), mean)
+names(PI) <- toupper(names(PI))
+PIscore <- PI
+```
+
+# Mouse data
+```{r}
+tmp.bgx <- readBGX("../../Data/GSE21131_Foster/GPL6887_MouseWG-6_V2_0_R0_11278593_A.bgx")
+GSE21131_series_matrix_v2 <- read_excel("../../Data/GSE21131_Foster/GSE21131_series.matrix_v2.xlsx")
+ 
+GSM528560_LSD1KD_A <- GSE21131_series_matrix_v2$GSM528560
+GSM528561_LSD1KD_B <- GSE21131_series_matrix_v2$GSM528561
+GSM528562_LSD1KD_C <- GSE21131_series_matrix_v2$GSM528562
+GSM528563_LSD1WT_A <- GSE21131_series_matrix_v2$GSM528563
+GSM528564_LSD1WT_B <- GSE21131_series_matrix_v2$GSM528564
+GSM528565_LSD1WT_C <- GSE21131_series_matrix_v2$GSM528565
+
+names(GSM528560_LSD1KD_A) <- GSE21131_series_matrix_v2$ID_REF
+names(GSM528561_LSD1KD_B) <- GSE21131_series_matrix_v2$ID_REF
+names(GSM528562_LSD1KD_C) <- GSE21131_series_matrix_v2$ID_REF
+names(GSM528563_LSD1WT_A) <- GSE21131_series_matrix_v2$ID_REF
+names(GSM528564_LSD1WT_B) <- GSE21131_series_matrix_v2$ID_REF
+names(GSM528565_LSD1WT_C) <- GSE21131_series_matrix_v2$ID_REF
+
+geneNames <- tmp.bgx$probes$ILMN_Gene
+names(geneNames) <- tmp.bgx$probes$Probe_Id
+```
+
+# Perform differential expression analysis
+```{r}
+tab <- GSE21131_series_matrix_v2
+
+exp.mat <- log2(apply(tab[,c(5,6,7,2,3,4)], 2, as.numeric))
+rownames(exp.mat) <- tab[,1][[1]]
+colnames(exp.mat) <- c("WT1","WT2","WT3", "KO1","KO2","KO3")
+
+design <- cbind(c(1,1,1,0,0,0), c(0,0,0,1,1,1))
+colnames(design) <- c("WT", "KO")
+fit <- lmFit(exp.mat, design) 
+contrast.matrix <- makeContrasts(KO-WT, levels=design)
+fit2 <- contrasts.fit(fit, contrast.matrix)
+fit2 <- eBayes(fit2)
+limma.tab <- topTable(fit2, adjust="BH", number=Inf)
+limma.logFC <- limma.tab[,"logFC"]
+names(limma.logFC) <- rownames(limma.tab)
+```
+
+```{r}
+load("../../Data/GSE21131_Foster/limmaLogFC.RData", verbose=T)
+
+names(limma.logFC) <- geneNames[names(limma.logFC)]
+limma.logFC <- limma.logFC[!is.na(names(limma.logFC))]
+```
+
+# Visualise data
+```{r}
+RNA.gene.count.Lsd1 <- cbind(GSM528563_LSD1WT_A, GSM528564_LSD1WT_B, GSM528565_LSD1WT_C, 
+                             GSM528560_LSD1KD_A, GSM528561_LSD1KD_B, GSM528562_LSD1KD_C)
+colnames(RNA.gene.count.Lsd1) <- c("WT1", "WT2", "WT3", "KO1", "KO2", "KO3")
+RNA.gene.count.Lsd1 <- RNA.gene.count.Lsd1[-45282,]
+RNA.gene.count.Lsd1 <- RNA.gene.count.Lsd1[unique(rownames(RNA.gene.count.Lsd1)),]
+
+par(mfrow=c(1,2))
+logmat <- log2(RNA.gene.count.Lsd1)
+logmat_log2fc <- rowMeans(logmat[,4:6]) - rowMeans(logmat[,1:3])
+names(logmat_log2fc) <- rownames(RNA.gene.count.Lsd1)
+boxplot(logmat_log2fc, outline=F, xlab="log2fc", main="qc")
+boxplot(limma.logFC, outline=F, xlab="log2fc", main="limma")
+```
+
+# Human data
+```{r}
+tmp1 <- read.delim("../../Data/Adamo_2011/GSM689155.txt", sep="\t", header=T)
+LsdKD_r1 <- tmp1[-c(1:9),c(14,27)]
+tmp2 <- read.delim("../../Data/Adamo_2011/GSM689156.txt", sep="\t", header=T)
+LsdKD_r2 <- tmp2[-c(1:9),c(14,27)]
+tmp3 <- read.delim("../../Data/Adamo_2011/GSM689157.txt", sep="\t", header=T)
+WT_r1 <- tmp3[-c(1:9),c(14,27)]
+tmp4 <- read.delim("../../Data/Adamo_2011/GSM689158.txt", sep="\t", header=T)
+WT_r2 <- tmp4[-c(1:9),c(14,27)]
+
+hWT <- log2(rowMeans(cbind(as.numeric(WT_r1$text.12), as.numeric(WT_r2$text.12))))
+names(hWT) <- WT_r1$integer.3
+
+hKD <- log2(rowMeans(cbind(as.numeric(LsdKD_r1$text.12), as.numeric(LsdKD_r2$text.12))))
+names(hKD) <- LsdKD_r1$integer.3
+
+hLSD1_log2FC <- hKD-hWT
+hLSD1_log2FC <- hLSD1_log2FC[-c(1:3)]
+head(hLSD1_log2FC)
+```
+
+# Filter for non-expressed genes
+```{r}
+####### filtering from Cell Systems paper
+rTranscriptome <- read_excel("../../Data/Transcriptome.xlsx", sheet = "Raw Transcriptome")
+rownames <- rTranscriptome$`Ensembl~GN`
+rownames <- strsplit(rownames, "~", 2)
+rownames <- do.call(rbind, rownames)
+rownames <- toupper(rownames[,2])
+rTranscriptome <- as.matrix(rTranscriptome[-1])
+rownames(rTranscriptome) <- rownames
+
+genetofilter <- names(which(table(unlist(apply(log2(rTranscriptome)[,1:2], 2, function(x) {
+    names(x[x < 5])
+}))) == 2))
+
+table(names(limma.logFC) %in% rownames(rTranscriptome))
+genetokeep <- names(limma.logFC) %in% rownames(rTranscriptome)[!rownames(rTranscriptome) %in% genetofilter] 
+```
+
+# Partition into pausing index groups
+```{r}
+q1 <- quantile(PIscore, probs=80/100)
+q2 <- quantile(PIscore, probs=60/100)
+q3 <- quantile(PIscore, probs=40/100)
+q4 <- quantile(PIscore, probs=20/100)
+
+PIscore_q1 <- PIscore[PIscore >= q1]
+PIscore_q2 <- PIscore[PIscore < q1 & PIscore >= q2]
+PIscore_q3 <- PIscore[PIscore < q2 & PIscore >= q3]
+PIscore_q4 <- PIscore[PIscore < q3 & PIscore >= q4]
+PIscore_q5 <- PIscore[PIscore < q4]
+```
+
+# Plot degree of logFC by pausing group
+## Mouse data
+```{r}
+par(mfrow=c(1,1))
+genetokeep <- names(limma.logFC) %in% rownames(rTranscriptome)[!rownames(rTranscriptome) %in% genetofilter]
+
+boxplot(
+        limma.logFC[names(PIscore_q5)],
+        limma.logFC[names(PIscore_q4)],
+        limma.logFC[names(PIscore_q3)], 
+        limma.logFC[names(PIscore_q2)],
+        limma.logFC[names(PIscore_q1)],       
+        notch=TRUE, outline=F,
+        main="LSD KD vs WT")
+```
+
+## Human data
+```{r}
+par(mfrow=c(1,1))
+genetokeep <- names(hLSD1_log2FC) %in% rownames(rTranscriptome)[!rownames(rTranscriptome) %in% genetofilter]
+
+boxplot(
+        hLSD1_log2FC[names(PIscore_q5)],
+        hLSD1_log2FC[names(PIscore_q4)],
+        hLSD1_log2FC[names(PIscore_q3)], 
+        hLSD1_log2FC[names(PIscore_q2)],
+        hLSD1_log2FC[names(PIscore_q1)],       
+        notch=TRUE, outline=F,
+        main="LSD KD vs WT")
+```
+
+# Session Info
+```{r}
+sessioninfo::session_info()
+```

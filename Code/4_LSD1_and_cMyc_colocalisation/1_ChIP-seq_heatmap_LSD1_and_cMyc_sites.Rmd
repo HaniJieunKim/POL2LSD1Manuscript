@@ -1,0 +1,138 @@
+---
+title: "Heatmap visualising the ChIP-seq binding sites for LSD1-specific, cMyc-specific, and common sites"
+author: "Hani Kim"
+date: "`r paste0('Initiated on 2020 Oct 31, compiled on ', format(Sys.time(), '%Y %b %d'))`"
+output:
+  html_document:
+    code_folding: hide
+    fig_height: 12
+    fig_width: 12
+    toc: yes
+    number_sections: true
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Summary
+Script to generate heatmap visualisations of the ChIP-seq binding sites for LSD1-specific, cMyc-specific, and common sites.
+
+# Loading
+
+## Load libraries
+```{r}
+library(gplots)
+```
+
+# Generate heatmap
+## LSD1 binding sites
+```{r}
+logFunc <- function(x) {
+  x.log <- log10(x);
+  x.log[is.infinite(x.log)] <- 0
+  x.log
+}
+
+allFiles <- list.files("../../Data/")
+files <- allFiles[grep("_Lsd1", allFiles)]
+
+c1 <- read.delim(paste("../../Data/", files[[1]], sep=""), header=F)
+c2 <- read.delim(paste("../../Data/", files[[2]], sep=""), header=F)
+c3 <- read.delim(paste("../../Data/", files[[3]], sep=""), header=F)
+
+c1.log <- logFunc(apply(c1[, -c(1:5)], 2, as.numeric))
+c2.log <- logFunc(apply(c2[, -c(1:5)], 2, as.numeric))
+c3.log <- logFunc(apply(c3[, -c(1:5)], 2, as.numeric))
+
+c1.log.sorted <- c1.log[order(rowSums(c1.log[,45:54]), 
+                              decreasing = TRUE),]
+c2.log.sorted <- c2.log[order(rowSums(c2.log[,45:54]),
+                              decreasing = TRUE),]
+c3.log.sorted <- c3.log[order(rowSums(c3.log[,45:54]), 
+                              decreasing = TRUE),]
+
+combined <- rbind(c1.log.sorted, c2.log.sorted, c3.log.sorted)
+
+cutoff <- quantile(combined, 0.99, na.rm=TRUE)
+combined[which(combined > cutoff)] <- cutoff
+```
+
+Save output
+```{r}
+tiff("../../Data/heatmap_Lsd1_combined.tiff", 
+     width = 1000, 
+     height = 6500)
+heatmap.2(combined,Rowv=FALSE, 
+          Colv=FALSE, 
+          dendrogram= c("none"), 
+          key=FALSE, 
+          keysize=0.5, 
+          trace="none",
+          margins=c(1, 1), 
+          na.color=par("bg"), 
+          labRow = "", labCol = "", 
+          scale="none",
+          col=colorpanel(50, "#FFF8DC", "darkblue"))
+dev.off()
+```
+
+## cMyc binding sites
+```{r}
+files <- allFiles[grep("_cMyc", allFiles)]
+
+c1 <- read.delim(paste("../../Data/", files[[1]], sep=""), header=F)
+c2 <- read.delim(paste("../../Data/", files[[2]], sep=""), header=F)
+c3 <- read.delim(paste("../../Data/", files[[3]], sep=""), header=F)
+
+c1.log <- logFunc(apply(c1[, -c(1:5)], 2, as.numeric))
+c2.log <- logFunc(apply(c2[, -c(1:5)], 2, as.numeric))
+c3.log <- logFunc(apply(c3[, -c(1:5)], 2, as.numeric))
+
+cutoff <- quantile(c1.log, 0.99, na.rm=TRUE)
+c1.log[which(c1.log > cutoff)] <- cutoff
+c1.log.sorted <- c1.log[order(rowSums(c1.log[,45:54]), 
+                              decreasing = TRUE),]
+
+cutoff <- quantile(c2.log, 0.99, na.rm=TRUE)
+c2.log[which(c2.log > cutoff)] <- cutoff
+c2.log.sorted <- c2.log[order(rowSums(c2.log[,45:54]), 
+                              decreasing = TRUE),]
+
+cutoff <- quantile(c3.log, 0.99, na.rm=TRUE)
+c3.log[which(c3.log > cutoff)] <- cutoff
+c3.log.sorted <- c3.log[order(rowSums(c3.log[,45:54]), 
+                              decreasing = TRUE),]
+
+combined <- rbind(c1.log.sorted, c2.log.sorted, c3.log.sorted)
+```
+
+Save output
+```{r}
+tiff("../../Data/heatmap_cMyc_combined.tiff", 
+     width = 1000, 
+     height = 6500)
+heatmap.2(combined,Rowv=FALSE, 
+          Colv=FALSE, 
+          dendrogram= c("none"), 
+          key=FALSE, 
+          keysize=0.5, 
+          trace="none",
+          margins=c(1, 1), 
+          na.color=par("bg"), 
+          labRow = "", 
+          labCol = "", 
+          scale="none",
+          col=colorpanel(50, "#FFF8DC", "darkblue"))
+dev.off()
+```
+
+# Session Info
+```{r}
+sessioninfo::session_info()
+```

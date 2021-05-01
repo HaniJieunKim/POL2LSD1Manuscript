@@ -1,0 +1,125 @@
+---
+title: "Top genes for LSD1-specific, cMyc-specific, and common sites"
+author: "Hani Kim"
+date: "`r paste0('Initiated on 2020 Oct 31, compiled on ', format(Sys.time(), '%Y %b %d'))`"
+output:
+  html_document:
+    code_folding: hide
+    fig_height: 12
+    fig_width: 12
+    toc: yes
+    number_sections: true
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Summary
+This script generates top gene sets for LSD1-specific, cMyc-specific, and LSD1 and cMyc colocalised sites.
+
+# Loading 
+Load proximal targets
+```{r, echo=FALSE}
+files <- list.files("../../Data/")
+files <- files[grepl("Lsd1_proximaltargets", files)]
+
+Lsd1 <- lapply(files, function(x) {
+  read.table(paste0("../../Data/", x))
+})
+names(Lsd1) <- files
+
+files <- list.files("../../Data/")
+files <- files[grepl("cMyc_proximaltargets", files)]
+
+cMyc <- lapply(files, function(x) { 
+  read.table(paste0("../../Data/", x))
+})
+names(cMyc) <- files
+```
+
+# Extract genes
+```{r}
+tmp <- lapply(Lsd1, function(x) as.character(x$V8))
+
+Lsd1_cMycSpecific <- toupper(sapply(strsplit(sapply(strsplit(tmp[[1]],","), "[[", 2), ";"), "[[", 1))
+Lsd1_common <- toupper(sapply(strsplit(sapply(strsplit(tmp[[2]],","), "[[", 2), ";"), "[[", 1))
+Lsd1_Lsd1Specific <- toupper(sapply(strsplit(sapply(strsplit(tmp[[3]],","), "[[", 2), ";"), "[[", 1))
+
+tmp <- lapply(cMyc, function(x) as.character(x$V8))
+
+cMyc_cMycSpecific <- toupper(sapply(strsplit(sapply(strsplit(tmp[[1]],","), "[[", 2), ";"), "[[", 1))
+cMyc_common <- toupper(sapply(strsplit(sapply(strsplit(tmp[[2]],","), "[[", 2), ";"), "[[", 1))
+cMyc_Lsd1Specific <- toupper(sapply(strsplit(sapply(strsplit(tmp[[3]],","), "[[", 2), ";"), "[[", 1))
+```
+
+```{r}
+table(unique(cMyc_cMycSpecific) %in% unique(Lsd1_cMycSpecific))
+table(unique(cMyc_Lsd1Specific) %in% unique(Lsd1_Lsd1Specific))
+```
+# Extract ranked cMyc-specific sites
+```{r}
+idx <- intersect(cMyc_cMycSpecific, Lsd1_cMycSpecific)
+cMyc_cMycSpecific_rank <- as.integer(1:length(idx))
+names(cMyc_cMycSpecific_rank) <- unique(cMyc_cMycSpecific[cMyc_cMycSpecific %in% idx]) 
+
+Lsd1_cMycSpecific_rank <- as.integer(1:length(idx))
+names(Lsd1_cMycSpecific_rank) <- unique(Lsd1_cMycSpecific[Lsd1_cMycSpecific %in% idx]) 
+
+head(cMyc_cMycSpecific_rank) 
+head(Lsd1_cMycSpecific_rank[names(cMyc_cMycSpecific_rank)])
+
+combined_cMycSpecific_rank <- cMyc_cMycSpecific_rank + Lsd1_cMycSpecific_rank[names(cMyc_cMycSpecific_rank)]
+combined_cMycSpecific_rank_sorted <- combined_cMycSpecific_rank[order(combined_cMycSpecific_rank, decreasing = F)]
+
+plot(combined_cMycSpecific_rank_sorted, 1:length(combined_cMycSpecific_rank_sorted))
+```
+
+# Extract ranked LSD1-specific sites
+```{r}
+idx <- intersect(cMyc_Lsd1Specific, Lsd1_Lsd1Specific)
+cMyc_Lsd1Specific_rank <- as.integer(1:length(idx))
+names(cMyc_Lsd1Specific_rank) <- unique(cMyc_Lsd1Specific[cMyc_Lsd1Specific %in% idx]) 
+
+Lsd1_Lsd1Specific_rank <- as.integer(1:length(idx))
+names(Lsd1_Lsd1Specific_rank) <- unique(Lsd1_Lsd1Specific[Lsd1_Lsd1Specific %in% idx]) 
+
+head(cMyc_Lsd1Specific_rank) 
+head(Lsd1_Lsd1Specific_rank[names(cMyc_Lsd1Specific_rank)])
+
+combined_Lsd1Specific_rank <- cMyc_Lsd1Specific_rank +  Lsd1_Lsd1Specific_rank[names(cMyc_Lsd1Specific_rank)]
+combined_Lsd1Specific_rank_sorted <- combined_Lsd1Specific_rank[order(combined_Lsd1Specific_rank, decreasing = F)]
+```
+
+# Extract ranked common sites
+```{r}
+idx <- intersect(Lsd1_common, cMyc_common)
+cMyc_common_rank <- as.integer(1:length(idx))
+names(cMyc_common_rank) <- unique(cMyc_common[cMyc_common %in% idx]) 
+
+Lsd1_common_rank <- as.integer(1:length(idx))
+names(Lsd1_common_rank) <- unique(Lsd1_common[Lsd1_common %in% idx]) 
+
+head(cMyc_common_rank) 
+head(Lsd1_common_rank[names(cMyc_common_rank)])
+
+combined_common_rank <- cMyc_common_rank +  Lsd1_common_rank[names(cMyc_common_rank)]
+combined_common_rank_sorted <- combined_common_rank[order(combined_common_rank, decreasing = F)]
+```
+
+```{r}
+save(combined_common_rank_sorted, 
+     combined_cMycSpecific_rank_sorted, 
+     combined_Lsd1Specific_rank_sorted, 
+     file="../../Data/TopGeneSets.Rdata")
+```
+
+# Session Info
+```{r}
+sessioninfo::session_info()
+```

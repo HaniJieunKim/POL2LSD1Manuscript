@@ -1,0 +1,105 @@
+---
+title: "RNAP2 pausing at RNAP2-associated proteins and LSD1"
+author: "Hani Kim"
+date: "`r paste0('Initiated on 2020 Oct 31, compiled on ', format(Sys.time(), '%Y %b %d'))`"
+output:
+  html_document:
+    code_folding: hide
+    fig_height: 12
+    fig_width: 12
+    toc: yes
+    number_sections: true
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Loadings
+## Load libraries
+```{r}
+library(readxl)
+```
+
+## Load target sites of factors
+```{r}
+load("../../Data/200930_targetlist.RData")
+```
+
+## Load pausing index
+```{r}
+PI <- read.table("../../Data/PI_ES_0h.txt", header=F)
+```
+
+## Load mouse data
+```{r}
+load("../../Data/GSE21131_Foster/limmaLogFC.RData", verbose=T)
+```
+
+# Filter for non-expressed genes
+```{r}
+####### filtering from Cell Systems paper
+rTranscriptome <- read_excel("../../Data/Transcriptome.xlsx", sheet = "Raw Transcriptome")
+rownames <- rTranscriptome$`Ensembl~GN`
+rownames <- strsplit(rownames, "~", 2)
+rownames <- do.call(rbind, rownames)
+rownames <- toupper(rownames[,2])
+rTranscriptome <- as.matrix(rTranscriptome[-1])
+rownames(rTranscriptome) <- rownames
+
+genetofilter <- names(which(table(unlist(apply(log2(rTranscriptome)[,1:2], 2, function(x) {
+    names(x[x < 5])
+}))) == 2))
+
+table(names(limma.logFC) %in% rownames(rTranscriptome))
+genetokeep <- names(limma.logFC) %in% rownames(rTranscriptome)[!rownames(rTranscriptome) %in% genetofilter] 
+```
+
+# Plot boxplot of pausing indices at target genes of factors
+```{r}
+PI <- sapply(split(PI[,3], PI[,2]), mean)
+names(PI) <- toupper(names(PI))
+PIscore <- PI
+
+PIscore.factors <- lapply(1:length(target.list), function(x) {
+    tmp <- unique(target.list[[x]]) 
+    tmp <- intersect(tmp, names(PIscore))
+    PIscore[tmp]
+})
+names(PIscore.factors) <- names(target.list)
+
+genetokeep <- names(PIscore) %in% rownames(rTranscriptome)[!rownames(rTranscriptome) %in% genetofilter]
+
+boxplot(
+    
+    PIscore[genetokeep],
+    
+    PIscore.factors[["Nelfa"]],  
+    PIscore.factors[["Lsd1"]],
+    PIscore.factors[["Cdk9"]],
+    PIscore.factors[["cMyc"]],
+    PIscore.factors[["TBP"]],
+    PIscore.factors[["Brd4"]],
+    PIscore.factors[["Spt5"]],
+    
+    notch=T,
+    outline=F,
+    col=c("grey",rainbow(7)),
+    ylab="pausing index",
+    names=c("all",
+            "Nelfa", "Lsd1","Cdk9","cMyc", "TBP", "Brd4", "Spt5"),
+    main="Pausing index of factors order by increasing pausing index")
+
+abline(h=median(PIscore[genetokeep]), col="red", lty="dotted", lwd=2)
+```
+
+# Session Info
+```{r}
+sessioninfo::session_info()
+```
+

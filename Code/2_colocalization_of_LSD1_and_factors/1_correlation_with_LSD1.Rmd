@@ -1,0 +1,55 @@
+---
+title: "Correlation ranking plot"
+author: "Hani Kim"
+date: "`r paste0('Initiated on 2020 Oct 31, compiled on ', format(Sys.time(), '%Y %b %d'))`"
+output:
+  html_document:
+    code_folding: hide
+    fig_height: 6
+    fig_width: 6
+    toc: yes
+    number_sections: true
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loadings
+## Load libraries
+```{r}
+library(calibrate)
+```
+
+## Load correlation matrix
+```{r}
+load("../../Data/LSD1_GSM687281_E7_cor.RData")
+```
+
+# Plot correlation plot
+```{r}
+TFs <- c("corest", "Hdac1", "Hdac2", "Pol2", "Nelfa", "cMyc", "cdk9", "brd4", "spt5", "nanog", "sox2")
+
+TFs.ranks <- sapply(TFs, function(x){
+  grep(x, names(LSD1_GSM687281_E7_cor), ignore.case = TRUE)[1]
+})
+
+plot(LSD1_GSM687281_E7_cor, 
+     ylab="Pearsons's correlation with LSD1", 
+     xlab="Rank",
+     ol="gray30")
+points(TFs.ranks, LSD1_GSM687281_E7_cor[TFs.ranks], pch=16, col="red")
+textxy(TFs.ranks, LSD1_GSM687281_E7_cor[TFs.ranks], 
+       gsub(".+_", "", names(LSD1_GSM687281_E7_cor)[TFs.ranks]))
+```
+
+# Session Info
+```{r}
+sessioninfo::session_info()
+```
+
